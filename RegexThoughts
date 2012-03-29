@@ -1,0 +1,47 @@
+Equations to be Identified
+
+y=...
+
+A*sin(x...) + D
+
+sin(x...)/A + D
+
+(1/A)
+
+
+Solve the problem by adding a check between the ampersands for a A` so we can look for
+
+(A/78787)*sin(B*C)&/d& + D
+
+
+
+.
+
+ Coefficient part one
+\*  connects the coefficient 
+sin\(([^)\n]*)\) --sin and the middle gets us B and C
+--second part after sin
+
+
+It could be possible that we could try a different framework and reverse engineer the graph itself to get the features
+
+
+	public static void main(String[] args){
+		//TODO USE EXPRESSION THE EVALUATE A AND D
+		
+		String getCoeff = "y=(-?\\d*[\\./]?\\d*)\\*sin\\([^)\\n]*\\)([\\+-]\\d*[\\./]?\\d*)?";
+		//String insideSIN = "sin\\(([^)\\n]*)\\)";
+		//String getOffset = "sin\\([^)\\n]*\\)([\\+\\-]\\d*[\\./]?\\d*)";
+		//String all = "(-?\\d*[\\./]?\\d*)\\*sin\\(([^)\\n]*)\\)";
+		String[] test = {"y= sin( x)","y=-sin(4 * x)", "y= sin (x)", "y=-3 * sin(4*x+20)", "y=-4.3*sin(4*x+432)+9"," y=5 /3 * sin( x/3)-4"};
+		
+		for(int i= 0; i<test.length; i++){
+			test[i] = test[i].replaceAll(" ", "");
+			test[i] = test[i].replaceAll("-sin", "-1*sin");
+			System.out.println("\nTest case "+i);
+			System.out.println("Equation: " + test[i]);
+			System.out.println("   Coeff: " + test[i].replaceAll(getCoeff, "____ $1 ____"));
+			//System.out.println("    Sine: " + test[i].replaceAll(insideSIN, "____ $1 ____"));
+			//System.out.println("  Offset: " + test[i].replaceAll(getOffset, "____ $1 ____"));
+			//System.out.println("     All: " + test[i].replaceAll(all, "____ $1 ____ $2 ____"));
+		}
