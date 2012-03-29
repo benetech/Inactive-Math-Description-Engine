@@ -1,0 +1,13 @@
+gov.nasa.ial.mde.describer
+gov.nasa.ial.mde.io
+gov.nasa.ial.mde.math
+gov.nasa.ial.mde.properties
+gov.nasa.ial.mde.solver
+gov.nasa.ial.mde.solver.classifier
+gov.nasa.ial.mde.solver.numeric
+gov.nasa.ial.mde.solver.symbolic
+gov.nasa.ial.mde.sound
+gov.nasa.ial.mde.ui
+gov.nasa.ial.mde.ui.graph
+gov.nasa.ial.mde.ui.util
+gov.nasa.ial.mde.util

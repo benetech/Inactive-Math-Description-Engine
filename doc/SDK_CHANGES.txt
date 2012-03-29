@@ -1,0 +1,64 @@
+===============================================================================
+NASA Johnson Space Center Learning Technologies - Information Accessibility Lab
+http://prime.jsc.nasa.gov/
+info@prime.jsc.nasa.gov
+===============================================================================
+
+Changes to the Math Description Engine (MDE) Software Development Kit
+
+-------------------------------------------------------------------------------
+v%SDK_VERSION% Build-%BUILD_NUMBER% - %TODAYS_DATE%
+Changes since v1.0.1 Build-200609261530
+-------------------------------------------------------------------------------
+
+- Fixed tabbing in the build file.
+
+- Added a prefix directory to the open source distributions.
+
+
+-------------------------------------------------------------------------------
+v1.0.1 Build-200609261530 - September 26, 2006
+Changes since v1.0 Build-200605011753
+-------------------------------------------------------------------------------
+
+- The images, XSL, and other resource files are now located in the "resources"
+directory.
+
+- The version and build numbers are now available in the MdeSettings class.
+
+- Updated the Javadoc code comments.
+
+
+-------------------------------------------------------------------------------
+v1.0 Build-200605011753 - May 1, 2006
+Changes since v1.0 Build-200603281503
+-------------------------------------------------------------------------------
+
+- Fixed a floating point round off issue in the AnalyzedEquation class.
+
+- Fixed a solution bounds issue in the classifier method of the
+AnalyzedEquation class.
+
+- Fixed a scaling issue in the CartesianGraph class which under certain
+circumstances could cause the graph to continually resize when sonified.
+
+- Fixed the duplicate() method of the CartesianGraph class by creating new
+instances of the bounds.
+
+- Fixed an IllegalArgumentException that was thrown in the setPan() method of
+the MultiWavePlayer class by adding range checking to the pan value.
+
+- Fixed a deadlock issue with the close() method of the MultiWavePlayer class.
+
+- Fixed the SoundControl class to reset the Play button label back to "Play"
+when the position slider is manually placed at far left starting position.
+
+- Fixed a NullPointerException in the startSounder() method of the SoundControl
+class.
+
+- Changed the modifier of the reset() method of the SoundControl class to
+public.
+
+- Added a new setControlsEnabled() method to the SoundControl class to allow
+the play button and the position slider components to be enabled or disabled.
+

@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+Copyright 2006, United States Government as represented by the Administrator
+for the National Aeronautics and Space Administration. No copyright is
+claimed in the United States under Title 17, U.S. Code. All Other Rights
+Reserved. 
+-->
+<project basedir="../../" default="compileDebug" name="Math Description Engine (MDE)">
+    <!-- Author: Dan Dexter -->
+
+    <description>Math Description Engine (MDE) Ant build file.</description>
+
+    <!-- Load the build properties as the first thing we do. -->
+    <property file="dist/ant/build.properties" />
+
+    <!-- The Open Source distribution root name. -->
+    <property name="openSrcDistName" value="mde-${mde.version}-src" />
+    <property name="openSrcBaseDirName" value="mde-${mde.version}" />
+
+    <!-- The root license filename. -->
+    <property name="licenseRootName" value="LICENSE" />
+
+    <!-- MDE project specific properties. -->
+    <property name="projectName" value="Math Description Engine (MDE)" />
+    <property name="websiteURL" value="http://prime.jsc.nasa.gov/" />
+
+    <!-- The version of Java we are targeting when compiling. -->
+    <property name="javaTargetVersion" value="1.5" />
+
+    <!-- The MDE SDK properties. -->
+    <property name="sdkJarName" value="mde-sdk-${mde.version}" />
+    <property name="sdkBaseFilename" value="mde-sdk-${mde.version}" />
+    <property name="sdkBaseDirName" value="mde-sdk${mde.version}" />
+    <property name="sdkInstallScript" value="mde-sdk.iss" />
+
+    <property name="sourceDir" value="src" />
+    <property name="classesDir" value="bin" />
+    <property name="sdkDir" value="${basedir}/sdk" />
+    <property name="apiSDKDocsDir" value="${sdkDir}/docs/api" />
+    <property name="installerDir" value="${sdkDir}/installer" />
+    <property name="depCacheDir" value="${basedir}/depcache" />
+
+    <property name="rootPackageName" value="gov.nasa.ial.mde" />
+    <property name="rootPackagePath" value="gov/nasa/ial/mde" />
+    <property name="rootPackageDir" value="${sourceDir}/${rootPackagePath}" />
+    <property name="mdeSettingsPath" value="${rootPackageDir}/properties/MdeSettings.java" />
+    <property name="settingsPath" value="${rootPackageDir}/properties/Settings.java" />
+
+    <!-- The IDE, ZIP, Common, and Installer exclude lists -->
+    <property name="fbExcludes" value="**/*.fbwarnings" />
+    <property name="ideExcludes" value="**/*.nbattrs,**/*.project,**/*.classpath,**/*.cdtproject,.svn/**,.settings/**" />
+    <property name="zipExcludes" value="${openSrcDistName}*.zip,${sdkBaseFilename}*.zip" />
+    <property name="tarExcludes" value="${openSrcDistName}*.tar.*,${sdkBaseFilename}*.tar.*" />
+    <property name="sdkExcludes" value="${sdkDir}/**" />
+    <property name="tutorialExcludes" value="Tutorial**" />
+    <property name="commonExcludes" value="${fbExcludes},${zipExcludes},${tarExcludes},${apiSDKDocsDir}/**,${depCacheDir},${depCacheDir}/**,${ideExcludes}" />
+    <property name="installerExcludes" value="${installerDir}/**" />
+
+    <!-- Initialize the custom tasks and properties. -->
+    <target name="-initInnoSetup">
+        <!-- Download from http://www.jrsoftware.org/isinfo.php -->
+        <property name="innoSetupCompiler" value="${innosetup.home}/iscc" />
+    </target>
+
+    <!-- Executable targets callable from the command line. -->
+
+    <target name="buildApiDocs"
+            depends="-initSDKVersion,-cleanSDKApiDocs"
+            description="Build the MDE SDK API documentation.">
+        <mkdir dir="${apiSDKDocsDir}" />
+        <javadoc packagenames="${rootPackageName}.*"
+                 sourcepath="${sourceDir}"
+                 defaultexcludes="yes"
+                 destdir="${apiSDKDocsDir}"
+                 breakiterator="true"
+                 access="protected"
+                 author="true"
+                 version="true"
+                 use="true"
+                 windowtitle="${projectName} Software Development Kit API">
+            <link offline="false" href="http://java.sun.com/j2se/1.5.0/docs/api/" />
+            <doctitle><![CDATA[<h1>${projectName}</h1>]]></doctitle>
+            <bottom><![CDATA[
+<font size="-1"><a href="${websiteURL}" target="_top">NASA Johnson Space Center Learning Technologies Project</a>
+<p>
+Copyright 2006, United States Government as represented by the Administrator
+for the National Aeronautics and Space Administration. No copyright is claimed
+in the United States under Title 17, U.S. Code. All Other Rights Reserved.
+Use is subject to <a href="{@docRoot}/../../LICENSE.txt">license terms</a>.</font>]]></bottom>
+    </javadoc>
+</target>
+
+<!-- Build MDE SDK Zip and Windows installers. -->
+<target name="buildSDK"
+        depends="-initSDKVersion,-initInnoSetup"
+        description="Build the MDE SDK Installers.">
+    <!-- Build the Zip, tar.gz, and tar.bz2 files. -->
+    <antcall target="-buildSDKZipInstaller" />
+
+    <echo message="SDKVER=${mde.version}" />
+    <echo message="SDKVERNAME=${sdk.version.name}" />
+    <echo message="SDKBASEFILENAME=${sdkBaseFilename}" />
+    <echo message="SDKBASEDIRNAME=${sdkBaseDirName}" />
+
+    <!-- Build the Windows MDE SDK installer. -->
+    <exec executable="${innoSetupCompiler}">
+        <arg value="${installerDir}/${sdkInstallScript}" />
+        <arg value="/dSDKVER=${mde.version}" />
+        <arg value="/dSDKVERNAME=${sdk.version.name}" />
+        <arg value="/dSDKBASEFILENAME=${sdkBaseFilename}" />
+        <arg value="/dSDKBASEDIRNAME=${sdkBaseDirName}" />
+    </exec>
+
+    <!-- Copy the SDK Windows installer to the base directory. -->
+    <echo message="Copying the SDK Windows installer '${sdkBaseFilename}.exe' to the base directory." />
+    <copy overwrite="Yes" file="${installerDir}/Output/${sdkBaseFilename}.exe" todir="${basedir}" />
+</target>
+
+<!-- Build the MDE SDK zip file (mde-sdk-1.0.zip).  -->
+<target name="-buildSDKZipInstaller" depends="-initSDKVersion">
+    <antcall target="cleanall" />
+    <antcall target="buildApiDocs" />
+    <antcall target="buildOptimizedJar" />
+    <copy file="${sdkJarName}.jar" todir="${sdkDir}/lib" />
+    <copy todir="${sdkDir}/examples">
+        <fileset dir="${basedir}">
+            <include name="Tutorial*.java" />
+
+            <!-- This example is not done yet so exclude it for now. -->
+            <exclude name="Tutorial_DataFileInput.java" />
+
+            <!-- Bobs test code, so don't include. -->
+            <exclude name="Tutorial_CommandLineSymbolicDeterminant.java" />
+        </fileset>
+    </copy>
+
+    <echo message="Building MDE SDK Zip file..." />
+    <delete file="${sdkBaseFilename}.zip" />
+    <zip compress="yes" destfile="${sdkBaseFilename}.zip">
+        <zipfileset dir="${sdkDir}"
+                    includes="*.txt,*.pdf,lib/**,docs/**,examples/**,${licenseRootName}.txt,${licenseRootName}.rtf"
+                    prefix="${sdkBaseDirName}" />
+    </zip>
+
+    <echo message="Building MDE SDK Tar GZip file..." />
+    <delete file="${sdkBaseFilename}.tar.gz" />
+    <tar compression="gzip" destfile="${sdkBaseFilename}.tar.gz">
+        <tarfileset dir="${sdkDir}"
+                    includes="*.txt,*.pdf,lib/**,docs/**,examples/**,${licenseRootName}.txt,${licenseRootName}.rtf"
+                    prefix="${sdkBaseDirName}" />
+    </tar>
+
+    <echo message="Building MDE SDK Tar BZip2 file..." />
+    <delete file="${sdkBaseFilename}.tar.bz2" />
+    <tar compression="bzip2" destfile="${sdkBaseFilename}.tar.bz2">
+        <tarfileset dir="${sdkDir}"
+                    includes="*.txt,*.pdf,lib/**,docs/**,examples/**,${licenseRootName}.txt,${licenseRootName}.rtf"
+                    prefix="${sdkBaseDirName}" />
+    </tar>
+</target>
+
+<target name="buildOpenSourceDist"
+        depends="-initSDKVersion"
+        description="Build the MDE Open Source distribution.">
+    <antcall target="cleanall" />
+    <antcall target="buildApiDocs" />
+    <antcall target="buildOptimizedJar" />
+
+    <echo message="Building Source Zip file..." />
+    <delete file="${openSrcDistName}.zip" />
+    <zip compress="yes" destfile="${openSrcDistName}.zip">
+        <zipfileset dir="${basedir}"
+                    includes="**/*"
+                    excludes="**/*.class,**/*.exe,*.zip,*.tar.*,${installerDir}/jre/**,${commonExcludes}"
+                    prefix="${openSrcBaseDirName}" />
+    </zip>
+
+    <echo message="Building Source Tar GZip file..." />
+    <delete file="${openSrcDistName}.tar.gz" />
+    <tar compression="gzip" destfile="${openSrcDistName}.tar.gz">
+        <tarfileset dir="${basedir}"
+                    includes="**/*"
+                    excludes="**/*.class,**/*.exe,*.zip,*.tar.*,${installerDir}/jre/**,${commonExcludes}"
+                    prefix="${openSrcBaseDirName}" />
+    </tar>
+
+    <echo message="Building Source Tar BZip2 file..." />
+    <delete file="${openSrcDistName}.tar.bz2" />
+    <tar compression="bzip2" destfile="${openSrcDistName}.tar.bz2">
+        <tarfileset dir="${basedir}"
+                    includes="**/*"
+                    excludes="**/*.class,**/*.exe,*.zip,*.tar.*,${installerDir}/jre/**,${commonExcludes}"
+                    prefix="${openSrcBaseDirName}" />
+    </tar>
+</target>
+
+<target name="clean" description="Remove class files to enable a clean build.">
+    <delete>
+        <fileset dir="${classesDir}" includes="**/*.class" />
+    </delete>
+</target>
+
+<target name="cleanall"
+        depends="clean,-cleanAllSDK"
+        description="Remove class, temp and Java dependency cache files.">
+    <!-- Delete Java class file interdependencies cache. -->
+    <delete dir="${depCacheDir}" />
+    <delete>
+        <fileset dir="${basedir}" includes="**/*.bak,**/*.BAK,**/*.bk" />
+        <fileset defaultexcludes="no" dir="${basedir}" includes="**/*~,**/*.#*" />
+    </delete>
+</target>
+
+<target name="compileDebug" description="Compile with Debug enabled.">
+    <!-- Check for interdependencies between files to ensure we
+			         compile everything that needs to be recompiled. -->
+    <echo message="Checking Java class file interdependencies..." />
+    <mkdir dir="${depCacheDir}" />
+    <depend srcdir="${sourceDir}" destdir="${classesDir}" cache="${depCacheDir}" closure="yes">
+        <exclude name="${sdkDir}/examples/**/*.java" />
+    </depend>
+
+    <echo message="Targeting Java version ${javaTargetVersion}" />
+    <javac debug="on"
+           optimize="off"
+           source="${javaTargetVersion}"
+           target="${javaTargetVersion}"
+           srcdir="${sourceDir}"
+           destdir="${classesDir}"
+           includes="**/*.java"
+           excludes="${sdkDir}/examples/**/*.java,**/test/**,**/tests/**,**/Test/**" />
+</target>
+
+<target name="compileOptimized" description="Compile with optimization enabled and no debug.">
+    <!-- Check for interdependencies between files to ensure we
+			         compile everything that needs to be recompiled. -->
+    <echo message="Checking Java class file interdependencies..." />
+    <mkdir dir="${depCacheDir}" />
+    <depend srcdir="${sourceDir}" destdir="${classesDir}" cache="${depCacheDir}" closure="yes">
+        <exclude name="${sdkDir}/examples/**/*.java" />
+    </depend>
+
+    <echo message="Targeting Java version ${javaTargetVersion}" />
+    <javac debug="off"
+           optimize="on"
+           source="${javaTargetVersion}"
+           target="${javaTargetVersion}"
+           srcdir="${sourceDir}"
+           destdir="${classesDir}"
+           includes="**/*.java"
+           excludes="${sdkDir}/examples/**/*.java,,**/test/**,**/tests/**,**/Test/**" />
+</target>
+
+<target name="buildDebugJar"
+        depends="-initSDKVersion"
+        description="Build a Debug compiled version of the Jar file.">
+    <antcall target="-turnDebugCommentsOn" />
+    <antcall target="clean" />
+    <antcall target="compileDebug" />
+    <antcall target="-buildJar">
+        <param name="jarName" value="${sdkJarName}" />
+        <param name="jarIncludes" value="**/*.class,resources/**" />
+        <param name="jarExcludes" value="${rootPackagePath}/**/*.html" />
+    </antcall>
+</target>
+
+<target name="buildOptimizedJar"
+        depends="-initSDKVersion"
+        description="Build an Optimized compiled version of the Jar file.">
+    <antcall target="-turnDebugCommentsOff" />
+    <antcall target="clean" />
+    <antcall target="compileOptimized" />
+    <antcall target="-buildJar">
+        <param name="jarName" value="${sdkJarName}" />
+        <param name="jarIncludes" value="**/*.class,resources/**" />
+        <param name="jarExcludes" value="${rootPackagePath}/**/*.html" />
+    </antcall>
+    <!-- <antcall target="-turnDebugCommentsOn" /> -->
+</target>
+
+
+<!-- ******** The targets below are for Internal use in this build script only. ******** -->
+
+<target name="-initBuildNumber">
+    <tstamp>
+        <format property="touch.date" pattern="M_d_yyyy" />
+        <format property="todays.date" pattern="MMMM d, yyyy" locale="en" />
+    </tstamp>
+    <property name="build.number" value="${DSTAMP}${TSTAMP}" />
+
+    <!-- Update the build number in the MDE settings files. -->
+    <replaceregexp file="${mdeSettingsPath}"
+                   match="BUILD_NUMBER = (.*)"
+                   replace="BUILD_NUMBER = &quot;${build.number}&quot;;"
+                   byline="true" />
+</target>
+
+<!-- Set the Version and Beta values in the MDE-SDK settings. -->
+<target name="-initSDKVersion"
+        depends="-initBuildNumber,-initBetaReleaseFlags,-initSDKVersionName,-initSDKBetaVersionName">
+	
+    <replaceregexp file="${mdeSettingsPath}"
+                   match="VERSION = (.*)"
+                   replace="VERSION = &quot;${mde.version}&quot;;"
+                   byline="true" />
+    <replaceregexp file="${mdeSettingsPath}"
+                   match="BETA_RELEASE = (.*)"
+                   replace="BETA_RELEASE = ${sdk.beta.release};"
+                   byline="true" />
+    <replaceregexp file="${mdeSettingsPath}"
+                   match="BETA_VERSION = (.*)"
+                   replace="BETA_VERSION = &quot;${sdk.beta}&quot;;"
+                   byline="true" />
+
+	
+    <!-- Update the autorun.inf file for the MDE SDK Windows installer. -->
+    <replaceregexp file="${installerDir}/autorun.inf"
+                   match="open=(.*)"
+                   replace="open=${sdkBaseFilename}.exe"
+                   byline="true" />
+    <replaceregexp file="${installerDir}/autorun.inf"
+                   match="icon=(.*)"
+                   replace="icon=${sdkBaseFilename}.exe"
+                   byline="true" />
+
+    <!-- Update the CHANGES.txt file to use the current version and build number -->
+    <copy overwrite="Yes" file="doc/SDK_CHANGES.txt" tofile="${sdkDir}/docs/CHANGES.txt" />
+    <replaceregexp file="${sdkDir}/docs/CHANGES.txt"
+                   match="%SDK_VERSION%"
+                   replace="${mde.version}"
+                   byline="true" />
+    <replaceregexp file="${sdkDir}/docs/CHANGES.txt"
+                   match="%BUILD_NUMBER%"
+                   replace="${build.number}"
+                   byline="true" />
+    <replaceregexp file="${sdkDir}/docs/CHANGES.txt"
+                   match="%TODAYS_DATE%"
+                   replace="${todays.date}"
+                   byline="true" />
+</target>
+
+<!-- Initialize the Beta release flags for the MDE SDK. -->
+<target name="-initBetaReleaseFlags">
+    <condition property="isSDKBetaRelease">
+        <istrue value="${sdk.beta.release}" />
+    </condition>
+</target>
+
+<!-- SDK version name if not a Beta release. -->
+<target name="-initSDKVersionName" unless="isSDKBetaRelease">
+    <property name="sdk.version.name" value="${mde.version}" />
+</target>
+
+<!-- SDK version name if this is a Beta release. -->
+<target name="-initSDKBetaVersionName" if="isSDKBetaRelease">
+    <property name="sdk.version.name" value="${mde.version} Beta-${sdk.beta}" />
+</target>
+
+<target name="-cleanSDKApiDocs">
+    <delete dir="${apiSDKDocsDir}" />
+    <mkdir dir="${apiSDKDocsDir}" />
+</target>
+
+<target name="-cleanSDKExamples">
+    <mkdir dir="${sdkDir}/examples" />
+    <delete>
+        <fileset dir="${sdkDir}/examples" includes="*.java" />
+    </delete>
+</target>
+
+<target name="-cleanAllSDK" depends="-cleanSDKApiDocs,-cleanSDKExamples">
+    <mkdir dir="${sdkDir}/lib" />
+    <delete file="${sdkJarName}.jar" />
+    <delete>
+        <fileset dir="${sdkDir}/lib" includes="*.jar" />
+        <fileset dir="${installerDir}" includes="*.jar" />
+    </delete>
+</target>
+
+<!-- Build the specified jar file. -->
+<target name="-buildJar">
+    <delete file="${jarName}.jar" />
+    <jar basedir="${classesDir}"
+         compress="yes"
+         includes="${jarIncludes}"
+         excludes="${jarExcludes},${jarName}.jar,build.xml,build.properties,**/*.java,${tutorialExcludes},${installerExcludes},${sdkExcludes},${commonExcludes}"
+         jarfile="${jarName}.jar" >
+    	 <manifest>
+    	 	<attribute name="Main-Class" value="gov.nasa.ial.mde.ui.DescriberAndGraphPanel"/>
+    	 </manifest>
+
+	</jar>
+</target>
+
+<!-- Turn Debug comments off. -->
+<target name="-turnDebugCommentsOff">
+    <replace file="${mdeSettingsPath}" token="DEBUG = true" value="DEBUG = false" />
+    <replace file="${settingsPath}" token="LOCAL_DEBUG = true" value="LOCAL_DEBUG = false" />
+</target>
+
+<!-- Turn Debug comments on. -->
+<target name="-turnDebugCommentsOn">
+    <replace file="${mdeSettingsPath}" token="DEBUG = false" value="DEBUG = true" />
+    <replace file="${settingsPath}" token="LOCAL_DEBUG = false" value="LOCAL_DEBUG = true" />
+</target>
+
+</project>
