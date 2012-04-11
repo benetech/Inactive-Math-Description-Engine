@@ -13,6 +13,7 @@ import java.awt.Toolkit;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -20,6 +21,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 
 import javax.xml.transform.stream.StreamSource;
 
@@ -88,6 +90,12 @@ public class ResourceUtil {
             }
             file = pathToResources + file;
         }
+
+        //Add res directory prefix if file not found
+        File tempFile = new File(file);
+        if (!tempFile.exists()) {
+            file = "res" + file;
+        }
         return file;
     }
     
@@ -127,7 +135,7 @@ public class ResourceUtil {
     public InputStream getResourceAsStream(String file) {
         return getClass().getResourceAsStream(resolvePathTo(file));
     }
-    
+
     /**
      * Returns a <code>StreamSource</code> to the specified file.
      * 
@@ -135,7 +143,16 @@ public class ResourceUtil {
      * @return a StreamSource to the file.
      */
     public StreamSource getResourceAsSource(String file) {
-        return new StreamSource(getResourceAsStream(file));
+        String fileString = resolvePathTo(file);
+        String systemID = null;
+        try {
+            systemID = new File(fileString).toURL().toExternalForm( );
+        } catch (MalformedURLException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        StreamSource source = new StreamSource(fileString);
+        source.setSystemId(systemID);
+        return source;
     }
     
     /**
