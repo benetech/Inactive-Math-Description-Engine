@@ -1,5 +1,27 @@
 <html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<script type="text/javascript" language="JavaScript" src="./js/load.js"></script>
+	<script type="text/javascript" language="JavaScript" src="./js/jquery-1.4.2.min.js"></script>
+</head>
+
 <h1>MDE with Graph.tk</h1>
+
+<div id="equation_entry">
+<p>Your Equation y= <input type=text name="equation" id="equation" size=20> (e.g. 2*x + 5) </p>
+<p><input type="submit" value="Get Graph" id="submit" onClick="buttonClicked()"></p>
+</div>
+
+<div id="status"></div>
+<!--
+<div id="description"></div>
+-->
+<div id="feedback"></div>
+<div id="description"></div>
+<div id="image"></div>
+<div id="auditory_graph"></div>
+
 <iframe src="http://graph.tk/" id="my_graph" style="width:500px;height:400px">
 </iframe>
 <script>
