@@ -17,7 +17,8 @@ var base_file_name = jsp_path+"buildit.jsp";
 
 // modules are the parts that will be computed.  The order in the array defines the order on the page.
 // the load pages must be defined as "load_"+module+".htm".
-var modules = ["feedback", "image", "auditory_graph", "description"];
+//var modules = ["feedback", "image", "auditory_graph", "description"];
+var modules = ["description"];
 //var wavmodules = ["auditory_graph", "description"];
 var wavmodules = [];
 
@@ -45,6 +46,7 @@ var loading_wav_state = false;
 function buttonClicked(){
 	setSubmitEnabled(false);
 	formula = document.getElementById("equation").value;
+	getGraph(formula);
 	formula = formula.replace("+", "{plus}");
 	formula = formula.replace("/", "{div}");
 	if(!identifier_override) {
@@ -117,7 +119,9 @@ function loadXMLDoc(formula, identifier) {
   			loading_bar_state=false;
 			$("#status").slideUp(300);
   			if(canUpdate()) {
-	  			updateModules(formula, identifier);
+  			  	description = loadDescription(identifier);
+
+	  			//updateModules(formula, identifier);
 //  				loadWavModules(formula, identifier);
   				deleteOldArtifacts();
   			} else {
@@ -209,8 +213,11 @@ function updateModules(formula, identifier) {
 }
 
 function loadDescription(identifier) {
-  	descriptionFileName = artifact_path+formula+"/description.txt";
-  	description = include(descriptionFileName);
+  	url = artifact_path+formula+"/description.txt";
+  	var seed = Math.random().toString().substring(2);
+ 	parent.description_frame.location.href = url.indexOf('?')>-1 ? url+'&seed='+seed : url+'?seed='+seed;
+	// Open the url and write out the response
+  	//description = include(descriptionFileName);
   	return description;
 }
 
@@ -241,8 +248,6 @@ include = function (url) {
  	var seed = Math.random().toString().substring(2);
  	url = url.indexOf('?')>-1 ? url+'&seed='+seed : url+'?seed='+seed;
 	// Open the url and write out the response
-	alert(url);
-	parent.description_frame.location.href = url;
 	requester.open("GET",url,false);
 	requester.send(null);
 	return requester.responseText;

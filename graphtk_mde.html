@@ -24,21 +24,23 @@
 
 <iframe src="empty.html" name="description_frame">
 </iframe>
-<!--
+
 <iframe src="http://graph.tk/" id="my_graph" style="width:500px;height:400px">
 </iframe>
 <script>
+
 var my_graph=document.getElementById("my_graph");
 
-my_graph.onload=function(){
+function getGraph(formula){
     function g(m){
         my_graph.contentWindow.postMessage(m,"http://graph.tk");
     };
-    g("add:x^3+1");
-    g("add:e^x");
+    g("add:" + formula);
+//    g("add:x^3+1");
+//    g("add:e^x");
 //  g("block"); - Block movement by user
     g("center:0,0");
 }
 
 //Methods include: add, block, empty, scale, translate, center
-</script>-->
+</script>
