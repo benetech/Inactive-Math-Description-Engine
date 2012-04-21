@@ -5,6 +5,7 @@
 //// CONFIGURATION
 // server root path, accessible from the Internet.
 var server_agm_root = "http://sonify2.psych.gatech.edu/capitol/";
+var server_web_root = "http://sonify2.psych.gatech.edu/graph/";
 
 // jsp path
 var jsp_path = server_agm_root+"jsp/";
@@ -28,13 +29,13 @@ var identifier_override = false;
 var load_file_name = "";
 
 // the artifact's path.
-var artifact_path = "./artifacts/";
+var artifact_path = server_web_root + "artifacts/";
 
 // the html path.  Used for htm parts.
-var htm_path = "./htm/";
+var htm_path = server_web_root + "htm/";
 
 // assets path.
-var assets_path = "./assets/";
+var assets_path = server_web_root + "assets/";
 
 var loading_bar_state = false;
 var loading_wav_state = false;
