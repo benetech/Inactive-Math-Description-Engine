@@ -241,6 +241,8 @@ include = function (url) {
  	var seed = Math.random().toString().substring(2);
  	url = url.indexOf('?')>-1 ? url+'&seed='+seed : url+'?seed='+seed;
 	// Open the url and write out the response
+	alert(url);
+	parent.description_frame.location.href = url;
 	requester.open("GET",url,false);
 	requester.send(null);
 	return requester.responseText;
