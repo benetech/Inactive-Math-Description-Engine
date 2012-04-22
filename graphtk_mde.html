@@ -28,7 +28,7 @@
 <iframe src="empty.html" name="description_frame">
 </iframe>
 
-<iframe src="http://graph.tk/" id="my_graph" style="width:500px;height:400px">
+<iframe src="http://www.graph.tk/" id="my_graph" style="width:500px;height:400px">
 </iframe>
 <input type="button" id="savepngbtn" value="Save PNG">
 <script>
@@ -38,12 +38,12 @@ var sinewave = new SineWave(context);
 
 var my_graph=document.getElementById("my_graph");
 
-document.getElementById("savepngbtn").onclick = function() {my_graph.contentWindow.postMessage("png","http://graph.tk");};
+document.getElementById("savepngbtn").onclick = function() {my_graph.contentWindow.postMessage("png","http://www.graph.tk");};
 
 
 function getGraph(formula){
     function g(m){
-        my_graph.contentWindow.postMessage(m,"http://graph.tk");
+        my_graph.contentWindow.postMessage(m,"http://www.graph.tk");
     };
 //Methods include: add, block, empty, scale, translate, center
     g("add:" + formula);
