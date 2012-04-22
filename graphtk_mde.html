@@ -38,12 +38,12 @@ var sinewave = new SineWave(context);
 
 var my_graph=document.getElementById("my_graph");
 
-document.getElementById("savepngbtn").onclick = function() {my_graph.contentWindow.postMessage("png","http://www.graph.tk");};
+document.getElementById("savepngbtn").onclick = function() {my_graph.contentWindow.postMessage("png","http://graph.tk");};
 
 
 function getGraph(formula){
     function g(m){
-        my_graph.contentWindow.postMessage(m,"http://www.graph.tk");
+        my_graph.contentWindow.postMessage(m,"http://graph.tk");
     };
 //Methods include: add, block, empty, scale, translate, center
     g("add:" + formula);
