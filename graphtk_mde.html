@@ -4,6 +4,9 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<script type="text/javascript" language="JavaScript" src="./js/load.js"></script>
 	<script type="text/javascript" language="JavaScript" src="./js/jquery-1.4.2.min.js"></script>
+	<script src="js/sinewave.js"></script>
+	<script src="js/base64.js" type="text/javascript"></script>
+	<script src="js/canvas2image.js" type="text/javascript"></script>
 </head>
 
 <h1>MDE with Graph.tk</h1>
@@ -27,20 +30,55 @@
 
 <iframe src="http://graph.tk/" id="my_graph" style="width:500px;height:400px">
 </iframe>
+<input type="button" id="savepngbtn" value="Save PNG">
 <script>
 
+var context = new webkitAudioContext();
+var sinewave = new SineWave(context);
+
 var my_graph=document.getElementById("my_graph");
+
+document.getElementById("savepngbtn").onclick = function() {my_graph.contentWindow.postMessage("png","http://graph.tk");};
+
 
 function getGraph(formula){
     function g(m){
         my_graph.contentWindow.postMessage(m,"http://graph.tk");
     };
+//Methods include: add, block, empty, scale, translate, center
     g("add:" + formula);
 //    g("add:x^3+1");
 //    g("add:e^x");
 //  g("block"); - Block movement by user
+	g("translate");
     g("center:0,0");
+   sinewave.play();
+   sonify(200);
 }
 
-//Methods include: add, block, empty, scale, translate, center
+function sonify(range) {
+	if (range<1800) {
+		func = document.getElementById("equation").value
+		func = func.replace("sin(x)","(Math.sin(x)*100+200)");
+		func = func.replace("x",range)
+		//alert(eval(func));
+	    sinewave.setFrequency(eval(func));
+		range += 10;
+		var t = setTimeout("sonify("+range+")",50);
+	} else {
+  		sinewave.pause();
+	}
+}
+
+
+function sleep(milliseconds) {
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
+}
+
+
 </script>
