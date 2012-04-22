@@ -15,10 +15,11 @@ import gov.nasa.ial.mde.solver.Solver;
 import gov.nasa.ial.mde.ui.graph.CartesianGraph;
 
 import javax.swing.JFrame;
+import java.io.IOException;
 
 public class Tutorial_CartesianGraph {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         // MDE Init:
         MdeSettings currentSettings = new MdeSettings("myAppsMdeProperties");
         Solver solver = new Solver();
@@ -41,7 +42,16 @@ public class Tutorial_CartesianGraph {
 
         // If our equation is graphable, draw the graph.
         if (solver.anyGraphable()) {
+
+            //Write svg to system out
+            grapher.writeSVGToSysout();
+
             grapher.drawGraph();
+
+            //Create .png image file from Java graph
+            //BufferedImage bi = new BufferedImage(300, 300, BufferedImage.TYPE_INT_RGB);
+            //grapher.drawGraphToImage(bi);
+            //ImageIO.write(bi, "png", new File("/tmp/test.png"));
         } else {
             System.out.println("MDE could not generate a graph for " + equation + ".");
         }

@@ -32,9 +32,18 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.text.NumberFormat;
 
 import javax.swing.JPanel;
+
+import org.apache.batik.dom.GenericDOMImplementation;
+import org.apache.batik.svggen.SVGGraphics2D;
+import org.apache.batik.svggen.SVGGraphics2DIOException;
+import org.w3c.dom.DOMImplementation;
+import org.w3c.dom.Document;
 
 /**
  * The <code>CartesianGraph</code> class is used to draw the solutions
@@ -403,7 +412,151 @@ public class CartesianGraph extends JPanel {
 			repaint();
 		}
     }
-    
+
+    /**
+         * Paints the <code>CartesianGraph</code> component.
+         *
+         * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
+         */
+        public void writeSVGToSysout() {
+            // Reset the graph bounds if the solver bounds have changed.
+            if (!solverBounds.equals(solver.getBounds())) {
+                resetBounds = true;
+            }
+
+            // Update our cached solver bounds.
+            solverBounds.setBounds(solver.getBounds());
+
+            // Update the graph bounds if the bounds have changed or need to be reset.
+            bounds = getBounds();
+            if (resetBounds || !bounds.equals(prevBounds)) {
+                resetBounds = false;
+                prevBounds = bounds;
+                graphBounds.x = bounds.x;
+                graphBounds.y = bounds.y;
+                graphBounds.width = bounds.width - sideBorderWidth;
+                graphBounds.height = bounds.height - bottomBorderHeight;
+                nullifyCachedPaths();
+            }
+
+            // Force the graph to a 1:1 aspect ratio by adjusting the graph bounds.
+            if (use1To1AspectRatio) {
+                // Now adjust to the bounds of the data to be drawn.
+                double deltaWidth = (solverBounds.right - solverBounds.left) / graphBounds.width;
+                double deltaHeight = (solverBounds.top - solverBounds.bottom) / graphBounds.height;
+                if (deltaWidth < deltaHeight) {
+                    int newWidth = (int)Math.round(graphBounds.width * (deltaWidth / deltaHeight));
+                    if (graphBounds.width != newWidth) {
+                        graphBounds.width = newWidth;
+                        nullifyCachedPaths();
+                    }
+                } else if (deltaHeight < deltaWidth) {
+                    int newHeight = (int)Math.round(graphBounds.height * (deltaHeight / deltaWidth));
+                    if (graphBounds.height != newHeight) {
+                        graphBounds.height = newHeight;
+                        nullifyCachedPaths();
+                    }
+                }
+            }
+
+
+            // Get a DOMImplementation.
+            DOMImplementation domImpl =
+                GenericDOMImplementation.getDOMImplementation();
+
+            // Create an instance of org.w3c.dom.Document.
+            String svgNS = "http://www.w3.org/2000/svg";
+            Document document = domImpl.createDocument(svgNS, "svg", null);
+
+            // Create an instance of the SVG Generator.
+            SVGGraphics2D g2 = new SVGGraphics2D(document);
+
+
+            if ((cachedPath == null) || !USE_CACHED_GRAPH_DRAWING) {
+
+                // Reset the clip region to the size of our bounds.
+                setupGraph(g2);
+
+                clearGraph = false;
+                // Don't graph the data if the clearGraph flag is set and the
+                // path is still cached.
+                if (!clearGraph && (cachedPath == null)) {
+                    graphData(g2);
+                }
+            }
+
+            // Enable antialiasing
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Use the user specified line size for the stroke.
+            if (userSpecifiedStroke.getLineWidth() != currentSettings.getLineSize()) {
+                userSpecifiedStroke = new BasicStroke(currentSettings.getLineSize());
+            }
+            g2.setStroke(userSpecifiedStroke);
+
+            // Draw the sonification trace.
+            if (currentSettings.showTrace()) {
+                drawSonificationTrace(g2);
+            }
+
+            // Draw the simulation Ball.
+            if (simBallEnabled) {
+                // Use the normal vector to determine the offset of the ball.
+                // Note: The ball radius in pixels must be converted into real numbers
+                // of X and Y that is why we scale it by the screen and graph diminsions.
+                drawSimulationBall(g2);
+            }
+
+            // Disable antialiasing
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+
+            // Finally, stream out SVG to the standard output using
+                    // UTF-8 encoding.
+                    boolean useCSS = true; // we want to use CSS style attributes
+            Writer out = null;
+            try {
+                out = new OutputStreamWriter(System.out, "UTF-8");
+                g2.stream(out, useCSS);
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (SVGGraphics2DIOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+
+
+        } // end paintComponent
+
+    private void drawSonificationTrace(SVGGraphics2D g2) {
+        int traceXaxisPixel = x2pix(traceXaxis);
+
+        if ((traceXaxisPixel >= 0) && (traceXaxisPixel <= graphBounds.width)) {
+
+            // Use the Polar graph trace only if we have one polar graph to
+            // sonify and no other graphs to sonify.
+            if ((solver.getSonifyPolarCount() == 1) &&
+                    (solver.getSonifyCartesianCount() == 0)) {
+
+                int traceYaxisPixel = y2pix(traceYaxis);
+                if (traceYaxisPixel == 0) {
+                    traceYaxisPixel = 1; // <== TODO: Why is this needed?????
+                }
+
+                // Draw a blue ball with a line around it.
+                double x = (traceXaxisPixel >= 0) ? traceXaxisPixel - 3 : traceXaxisPixel + 3;
+                double y = (traceYaxisPixel >= 0) ? traceYaxisPixel - 3 : traceYaxisPixel + 3;
+                g2.setColor(Color.blue);
+                g2.fill(new Ellipse2D.Double(x, y, BALL_DIAMETER, BALL_DIAMETER));
+
+                // Moving Object Simulation (circle)
+                g2.setColor(Color.white);
+                g2.draw(new Ellipse2D.Double(x, y, BALL_DIAMETER, BALL_DIAMETER));
+            } else {
+                g2.setColor(Color.white);
+                drawLine(traceXaxisPixel, graphBounds.height, traceXaxisPixel, 0, g2);
+            }
+        }
+    }
+
     /**
      * Paints the <code>CartesianGraph</code> component.
      * 
@@ -452,7 +605,7 @@ public class CartesianGraph extends JPanel {
         }
         
         Graphics2D g2;
-        
+
         if ((cachedPath == null) || !USE_CACHED_GRAPH_DRAWING) {
             
             if (USE_CACHED_GRAPH_DRAWING) {
@@ -475,240 +628,13 @@ public class CartesianGraph extends JPanel {
             } else {
                 g2 = (Graphics2D)g;
             }
-            
-            // Reset the clip region to the size of our bounds.
-            g2.setClip(0, 0, bounds.width, bounds.height);
-            
-            if (useBlackAndWhiteShade) {
-                g2.setColor(Color.white);
-                g2.fillRect(0, 0, bounds.width, bounds.height);
-                g2.setColor(Color.black);
-            } else {
-                g2.setColor(currentSettings.getBackgroundColor());
-                g2.fillRect(0, 0, bounds.width, bounds.height);
-                g2.setColor(currentSettings.getAxisColor());
-            }
-			
-            // Axis lines use a basic solid line that is 1 pixel wide.
-            g2.setStroke(new BasicStroke(1));
-            
-            int xAxisPixel = -1;
-            if ((solver.getLeft() < 0.0) && (solver.getRight() > 0.0)) {
-                xAxisPixel = x2pix(0.0);
-                drawLine(xAxisPixel, graphBounds.height, xAxisPixel, 0, g2);
-            } // end if
-            
-            int yAxisPixel = -1;
-            if ((solver.getTop() > 0.0) && (solver.getBottom() < 0.0)) {
-                yAxisPixel = y2pix(0.0);
-                drawLine(0, yAxisPixel, graphBounds.width, yAxisPixel, g2);
-            } // end if
-	
-            // Grid uses dashed lines.
-            BasicStroke dashedStroke = new BasicStroke(1.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1.0f, new float[] { 1.0f }, 0.0f);
-            g2.setStroke(dashedStroke);
-            
-            String axisLbl;
-            int w,xi,yi;
-            
-            double delta = MathUtil.findDelta(solverBounds.right - solverBounds.left);
-            double lastValue = solverBounds.right + 0.5 * delta;
-            int labelYPos = graphBounds.height + bottomBorderHeight - fontMetrics.getMaxDescent();
-            
-            // Draw the X axis labels.
-            for (double x = delta * Math.ceil(solverBounds.left / delta); x < lastValue; x += delta) {
-                xi = x2pix(x);
-                
-                if (Math.abs(xi - xAxisPixel) > 3) {
-                    if (useBlackAndWhiteShade) {
-                        g2.setColor(Color.lightGray);
-                    } else {
-                        g2.setColor(currentSettings.getGridColor());
-                    }
-                    drawLine(xi, 0, xi, graphBounds.height, g2);
-                }
-                axisLbl = displayDouble(x);
-                if (useBlackAndWhiteShade) {
-                    g2.setColor(Color.darkGray);
-                } else {
-                    g2.setColor(currentSettings.getAxisColor());
-                }
-                g2.drawString(axisLbl, xi, labelYPos);
-            } // end for x
-            
-            delta = MathUtil.findDelta(solverBounds.top - solverBounds.bottom);
-            lastValue = solverBounds.top + 0.5 * delta;
-            
-            // Draw the Y axis labels.
-            for (double y = delta * Math.ceil(solverBounds.bottom / delta); y < lastValue; y += delta) {
-                yi = y2pix(y);
-                
-                if (Math.abs(yi - yAxisPixel) > 3) {
-                    if (useBlackAndWhiteShade) {
-                        g2.setColor(Color.lightGray);
-                    } else {
-                        g2.setColor(currentSettings.getGridColor());
-                    }
-                    drawLine(0, yi, graphBounds.width, yi, g2);
-                }
-                
-                axisLbl = displayDouble(y);
-                w = (int)(((fontMetrics.getHeight() + 5.0) * (graphBounds.height - yi)) / graphBounds.height);
-                if (useBlackAndWhiteShade) {
-                    g2.setColor(Color.darkGray);
-                } else {
-                    g2.setColor(currentSettings.getAxisColor());
-                }
-                g2.drawString(axisLbl, graphBounds.width, yi + w - fontMetrics.getMaxDescent());
-            } // end for y
-            
-            // Clip any drawing outside of our graph bounds.
-            g2.setClip(0, 0, graphBounds.width, graphBounds.height);
-            
+            setupGraph(g2);
+
+
             // Don't graph the data if the clearGraph flag is set and the
             // path is still cached.
             if (!clearGraph && (cachedPath == null)) {
-                cachedPath = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
-                cachedScatterPlotPath = null;
-                
-                Solution solution;
-                AnalyzedData analyzedData;
-                GraphTrail[] graphTrails;
-                PointXY[] points;
-                double[] xData,yData;
-                int i,numPoints,numTrails;
-                int xp,yp,xdrawn,ydrawn,leftIndex,rightIndex;
-                int numSolutions = solver.size();
-                
-                // Draw each of the solutions.
-                for (int solutionIndex = 0; solutionIndex < numSolutions; solutionIndex++) {
-                    solution = solver.get(solutionIndex);
-                    graphTrails = solution.getGraphTrails();
-                    
-                    if (solution.isShowGraph() && (graphTrails != null)) {
-                        numTrails = graphTrails.length;
-                        
-                        for (i = 0; i < numTrails; i++) {
-                            points = graphTrails[i].getPoints();
-                            numPoints = (points != null) ? points.length : 0;
-                            if (numPoints < 2) {
-                                continue;
-                            }
-                            
-                            // Move to the first point in the trail.
-                            xp = x2pix(points[0].x);
-                            yp = y2pix(points[0].y);
-                            cachedPath.moveTo(xp,yp);
-                            
-                            // Draw the first line segment and setup the xdrawn and ydrawn values.
-                            xp = x2pix(points[1].x);
-                            yp = y2pix(points[1].y);
-                            cachedPath.lineTo(xp,yp);
-                            xdrawn = xp;
-                            ydrawn = yp;
-                            
-                            // Draw the remaining line segments.
-                            for (w = 2; w < numPoints; w++) {
-                                xp = x2pix(points[w].x);
-                                yp = y2pix(points[w].y);
-                                
-                                // Draw the line if we have not drawn it to this point before.
-                                // This will exclude duplicates.
-                                if ((xp != xdrawn) || (yp != ydrawn)) {
-                                    cachedPath.lineTo(xp,yp);
-                                    xdrawn = xp;
-	                                ydrawn = yp;
-                                }
-                            }
-                            
-                            // Move to the last point drawn and close the path.
-                            cachedPath.moveTo(xdrawn,ydrawn);
-                            cachedPath.closePath();
-                        }
-                        
-                        // Generate the real data scatter-plot path.
-                        if (currentSettings.isDataPointsShown() &&
-                                (solution.getAnalyzedItem() instanceof AnalyzedData)) {
-                            
-                            analyzedData = (AnalyzedData)solution.getAnalyzedItem();
-                            xData = analyzedData.getXValues();
-                            yData = analyzedData.getYValues();
-                            leftIndex = analyzedData.getLeftIndexBound();
-                            rightIndex = analyzedData.getRightIndexBound();
-                            
-                            if ((xData != null) && (yData != null) && (rightIndex >= 0) && (leftIndex <= rightIndex)) {
-	                            if (cachedScatterPlotPath == null) {
-	                                cachedScatterPlotPath = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
-	                            }
-	                            
-	                            // Draw the first point and setup the xdrawn and ydrawn values.
-	                            xp = x2pix(xData[leftIndex]);
-                                yp = y2pix(yData[leftIndex]);
-	                            cachedScatterPlotPath.moveTo(xp,yp);
-	                            cachedScatterPlotPath.lineTo(xp,yp);
-	                            xdrawn = xp;
-	                            ydrawn = yp;
-                                
-	                            // Draw the remaining points.
-	                            for (i = leftIndex+1; i <= rightIndex; i++) {
-	                                xp = x2pix(xData[i]);
-	                                yp = y2pix(yData[i]);
-	                                
-	                                // Draw the point if we have not drawn it before.
-	                                // This will exclude duplicates.
-	                                if ((xp != xdrawn) || (yp != ydrawn)) {
-		                                cachedScatterPlotPath.moveTo(xp,yp);
-		                                cachedScatterPlotPath.lineTo(xp,yp);
-		                                xdrawn = xp;
-		                                ydrawn = yp;
-	                                }
-	                            }
-	                            
-	                            // Move to the last point drawn and close the path.
-	                            cachedScatterPlotPath.moveTo(xdrawn,ydrawn);
-	                            cachedScatterPlotPath.closePath();
-                            }
-                        }
-                    }
-                }
-                
-                if (userSpecifiedStroke.getLineWidth() != currentSettings.getLineSize()) {
-                    userSpecifiedStroke = new BasicStroke(currentSettings.getLineSize());
-                }
-                g2.setStroke(userSpecifiedStroke);
-                
-                // Set the line color to use for the plotted data.
-                if (useBlackAndWhiteShade) {
-                    g2.setColor(Color.black);
-                } else {
-                    g2.setColor(currentSettings.getLineColor());
-                }
-                
-                // Enable antialiasing
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
-                // Draw the line path.
-                g2.draw(cachedPath);
-                
-                // Disable antialiasing
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-                
-                // Draw the scatter plot path.
-                if ((cachedScatterPlotPath != null) && currentSettings.isDataPointsShown()) {
-                    // Draw the real-data points as a dot with an odd width that is larger
-                    // than the line width used to line-plot the model data.
-                    int lineWidth = Math.max(3,(2 * currentSettings.getLineSize()) - 1);
-                    if (scatterPlotStroke.getLineWidth() != lineWidth) {
-                        scatterPlotStroke = new BasicStroke(lineWidth);
-                    }
-                    g2.setStroke(scatterPlotStroke);
-                    if (useBlackAndWhiteShade) {
-                        g2.setColor(Color.black);
-                    } else {
-                        g2.setColor(currentSettings.getDataPointColor());
-                    }
-                    g2.draw(cachedScatterPlotPath);
-                }
+                graphData(g2);
             }
         }
         
@@ -766,50 +692,291 @@ public class CartesianGraph extends JPanel {
         
         // Draw the simulation Ball.
         if (simBallEnabled) {
-            // Use the normal vector to determine the offset of the ball.
-            // Note: The ball radius in pixels must be converted into real numbers
-            // of X and Y that is why we scale it by the screen and graph diminsions.
-            double pointX = simBallXaxis + simBallNormalVector.x * BALL_RADIUS * (solverBounds.right - solverBounds.left) / graphBounds.width;
-            double pointY = simBallYaxis + simBallNormalVector.y * BALL_RADIUS * (solverBounds.top - solverBounds.bottom) / graphBounds.height;
-            
-            // Don't use x2pix() or y2pix() because they will clip the values.
-            // The range of the ball position is checked before it is drawn.
-            int ballXaxisPixel = (int) (((pointX - solverBounds.left) / (solverBounds.right - solverBounds.left)) * graphBounds.width); //x2pix(x);
-            int ballYaxisPixel = (int) (((solverBounds.top - pointY) / (solverBounds.top - solverBounds.bottom)) * graphBounds.height); //y2pix(y);
-            
-            // Draw the ball only if any part of it is visible.
-            if ((ballXaxisPixel >= -BALL_RADIUS) &&
-                (ballXaxisPixel <= graphBounds.width + BALL_RADIUS) &&
-                (ballYaxisPixel >= -BALL_RADIUS) &&
-                (ballYaxisPixel <= graphBounds.height + BALL_RADIUS)) {
-                
-                if ((ballYaxisPixel == 0) && (solver.size() == 1)) {
-                    // NOTE: We only support one equation/data item for the simulation.
-                    Solution solution = solver.get(0);
-                    AnalyzedItem analyzedItem = solution.getAnalyzedItem();
-                    if ((analyzedItem instanceof AnalyzedEquation) && ((AnalyzedEquation)analyzedItem).isPolar()) {
-                        ballYaxisPixel = 1; // <== Why is this needed?????
-                    }
-                }
-                int xBall = ballXaxisPixel - BALL_RADIUS;
-                int yBall = ballYaxisPixel - BALL_RADIUS;
-                
-                // Moving Object Simulation (ball)
-                g2.setColor(Color.red);
-                g2.fill(new Ellipse2D.Double(xBall, yBall, BALL_DIAMETER, BALL_DIAMETER));
-                
-                // Moving Object Simulation (outline of ball)
-                g2.setColor(Color.white);
-                g2.draw(new Ellipse2D.Double(xBall, yBall, BALL_DIAMETER, BALL_DIAMETER));
-            }
+            drawSimulationBall(g2);
+
         }
         
         // Disable antialiasing
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         
     } // end paintComponent
-    
-    
+
+    private void drawSimulationBall(Graphics2D g2) {
+        // Use the normal vector to determine the offset of the ball.
+        // Note: The ball radius in pixels must be converted into real numbers
+        // of X and Y that is why we scale it by the screen and graph diminsions.
+        double pointX = simBallXaxis + simBallNormalVector.x * BALL_RADIUS * (solverBounds.right - solverBounds.left) / graphBounds.width;
+        double pointY = simBallYaxis + simBallNormalVector.y * BALL_RADIUS * (solverBounds.top - solverBounds.bottom) / graphBounds.height;
+
+        // Don't use x2pix() or y2pix() because they will clip the values.
+        // The range of the ball position is checked before it is drawn.
+        int ballXaxisPixel = (int) (((pointX - solverBounds.left) / (solverBounds.right - solverBounds.left)) * graphBounds.width); //x2pix(x);
+        int ballYaxisPixel = (int) (((solverBounds.top - pointY) / (solverBounds.top - solverBounds.bottom)) * graphBounds.height); //y2pix(y);
+
+        // Draw the ball only if any part of it is visible.
+        if ((ballXaxisPixel >= -BALL_RADIUS) &&
+            (ballXaxisPixel <= graphBounds.width + BALL_RADIUS) &&
+            (ballYaxisPixel >= -BALL_RADIUS) &&
+            (ballYaxisPixel <= graphBounds.height + BALL_RADIUS)) {
+
+            if ((ballYaxisPixel == 0) && (solver.size() == 1)) {
+                // NOTE: We only support one equation/data item for the simulation.
+                Solution solution = solver.get(0);
+                AnalyzedItem analyzedItem = solution.getAnalyzedItem();
+                if ((analyzedItem instanceof AnalyzedEquation) && ((AnalyzedEquation)analyzedItem).isPolar()) {
+                    ballYaxisPixel = 1; // <== Why is this needed?????
+                }
+            }
+            int xBall = ballXaxisPixel - BALL_RADIUS;
+            int yBall = ballYaxisPixel - BALL_RADIUS;
+
+            // Moving Object Simulation (ball)
+            g2.setColor(Color.red);
+            g2.fill(new Ellipse2D.Double(xBall, yBall, BALL_DIAMETER, BALL_DIAMETER));
+
+            // Moving Object Simulation (outline of ball)
+            g2.setColor(Color.white);
+            g2.draw(new Ellipse2D.Double(xBall, yBall, BALL_DIAMETER, BALL_DIAMETER));
+        }
+    }
+
+    private void setupGraph(Graphics2D g2) {
+        // Reset the clip region to the size of our bounds.
+        g2.setClip(0, 0, bounds.width, bounds.height);
+
+        if (useBlackAndWhiteShade) {
+            g2.setColor(Color.white);
+            g2.fillRect(0, 0, bounds.width, bounds.height);
+            g2.setColor(Color.black);
+        } else {
+            g2.setColor(currentSettings.getBackgroundColor());
+            g2.fillRect(0, 0, bounds.width, bounds.height);
+            g2.setColor(currentSettings.getAxisColor());
+        }
+
+        // Axis lines use a basic solid line that is 1 pixel wide.
+        g2.setStroke(new BasicStroke(1));
+
+        int xAxisPixel = -1;
+        if ((solver.getLeft() < 0.0) && (solver.getRight() > 0.0)) {
+            xAxisPixel = x2pix(0.0);
+            drawLine(xAxisPixel, graphBounds.height, xAxisPixel, 0, g2);
+        } // end if
+
+        int yAxisPixel = -1;
+        if ((solver.getTop() > 0.0) && (solver.getBottom() < 0.0)) {
+            yAxisPixel = y2pix(0.0);
+            drawLine(0, yAxisPixel, graphBounds.width, yAxisPixel, g2);
+        } // end if
+
+        // Grid uses dashed lines.
+        BasicStroke dashedStroke = new BasicStroke(1.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1.0f, new float[] { 1.0f }, 0.0f);
+        g2.setStroke(dashedStroke);
+
+        String axisLbl;
+        int w,xi,yi;
+
+        double delta = MathUtil.findDelta(solverBounds.right - solverBounds.left);
+        double lastValue = solverBounds.right + 0.5 * delta;
+        int labelYPos = graphBounds.height + bottomBorderHeight - fontMetrics.getMaxDescent();
+
+        // Draw the X axis labels.
+        for (double x = delta * Math.ceil(solverBounds.left / delta); x < lastValue; x += delta) {
+            xi = x2pix(x);
+
+            if (Math.abs(xi - xAxisPixel) > 3) {
+                if (useBlackAndWhiteShade) {
+                    g2.setColor(Color.lightGray);
+                } else {
+                    g2.setColor(currentSettings.getGridColor());
+                }
+                drawLine(xi, 0, xi, graphBounds.height, g2);
+            }
+            axisLbl = displayDouble(x);
+            if (useBlackAndWhiteShade) {
+                g2.setColor(Color.darkGray);
+            } else {
+                g2.setColor(currentSettings.getAxisColor());
+            }
+            g2.drawString(axisLbl, xi, labelYPos);
+        } // end for x
+
+        delta = MathUtil.findDelta(solverBounds.top - solverBounds.bottom);
+        lastValue = solverBounds.top + 0.5 * delta;
+
+        // Draw the Y axis labels.
+        for (double y = delta * Math.ceil(solverBounds.bottom / delta); y < lastValue; y += delta) {
+            yi = y2pix(y);
+
+            if (Math.abs(yi - yAxisPixel) > 3) {
+                if (useBlackAndWhiteShade) {
+                    g2.setColor(Color.lightGray);
+                } else {
+                    g2.setColor(currentSettings.getGridColor());
+                }
+                drawLine(0, yi, graphBounds.width, yi, g2);
+            }
+
+            axisLbl = displayDouble(y);
+            w = (int)(((fontMetrics.getHeight() + 5.0) * (graphBounds.height - yi)) / graphBounds.height);
+            if (useBlackAndWhiteShade) {
+                g2.setColor(Color.darkGray);
+            } else {
+                g2.setColor(currentSettings.getAxisColor());
+            }
+            g2.drawString(axisLbl, graphBounds.width, yi + w - fontMetrics.getMaxDescent());
+        } // end for y
+
+        // Clip any drawing outside of our graph bounds.
+        g2.setClip(0, 0, graphBounds.width, graphBounds.height);
+    }
+
+    private void graphData(Graphics2D g2) {
+        int w;
+        cachedPath = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
+        cachedScatterPlotPath = null;
+
+        Solution solution;
+        AnalyzedData analyzedData;
+        GraphTrail[] graphTrails;
+        PointXY[] points;
+        double[] xData,yData;
+        int i,numPoints,numTrails;
+        int xp,yp,xdrawn,ydrawn,leftIndex,rightIndex;
+        int numSolutions = solver.size();
+
+        // Draw each of the solutions.
+        for (int solutionIndex = 0; solutionIndex < numSolutions; solutionIndex++) {
+            solution = solver.get(solutionIndex);
+            graphTrails = solution.getGraphTrails();
+
+            if (solution.isShowGraph() && (graphTrails != null)) {
+                numTrails = graphTrails.length;
+
+                for (i = 0; i < numTrails; i++) {
+                    points = graphTrails[i].getPoints();
+                    numPoints = (points != null) ? points.length : 0;
+                    if (numPoints < 2) {
+                        continue;
+                    }
+
+                    // Move to the first point in the trail.
+                    xp = x2pix(points[0].x);
+                    yp = y2pix(points[0].y);
+                    cachedPath.moveTo(xp,yp);
+
+                    // Draw the first line segment and setup the xdrawn and ydrawn values.
+                    xp = x2pix(points[1].x);
+                    yp = y2pix(points[1].y);
+                    cachedPath.lineTo(xp,yp);
+                    xdrawn = xp;
+                    ydrawn = yp;
+
+                    // Draw the remaining line segments.
+                    for (w = 2; w < numPoints; w++) {
+                        xp = x2pix(points[w].x);
+                        yp = y2pix(points[w].y);
+
+                        // Draw the line if we have not drawn it to this point before.
+                        // This will exclude duplicates.
+                        if ((xp != xdrawn) || (yp != ydrawn)) {
+                            cachedPath.lineTo(xp,yp);
+                            xdrawn = xp;
+                            ydrawn = yp;
+                        }
+                    }
+
+                    // Move to the last point drawn and close the path.
+                    cachedPath.moveTo(xdrawn,ydrawn);
+                    cachedPath.closePath();
+                }
+
+                // Generate the real data scatter-plot path.
+                if (currentSettings.isDataPointsShown() &&
+                        (solution.getAnalyzedItem() instanceof AnalyzedData)) {
+
+                    analyzedData = (AnalyzedData)solution.getAnalyzedItem();
+                    xData = analyzedData.getXValues();
+                    yData = analyzedData.getYValues();
+                    leftIndex = analyzedData.getLeftIndexBound();
+                    rightIndex = analyzedData.getRightIndexBound();
+
+                    if ((xData != null) && (yData != null) && (rightIndex >= 0) && (leftIndex <= rightIndex)) {
+                        if (cachedScatterPlotPath == null) {
+                            cachedScatterPlotPath = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
+                        }
+
+                        // Draw the first point and setup the xdrawn and ydrawn values.
+                        xp = x2pix(xData[leftIndex]);
+                        yp = y2pix(yData[leftIndex]);
+                        cachedScatterPlotPath.moveTo(xp,yp);
+                        cachedScatterPlotPath.lineTo(xp,yp);
+                        xdrawn = xp;
+                        ydrawn = yp;
+
+                        // Draw the remaining points.
+                        for (i = leftIndex+1; i <= rightIndex; i++) {
+                            xp = x2pix(xData[i]);
+                            yp = y2pix(yData[i]);
+
+                            // Draw the point if we have not drawn it before.
+                            // This will exclude duplicates.
+                            if ((xp != xdrawn) || (yp != ydrawn)) {
+                                cachedScatterPlotPath.moveTo(xp,yp);
+                                cachedScatterPlotPath.lineTo(xp,yp);
+                                xdrawn = xp;
+                                ydrawn = yp;
+                            }
+                        }
+
+                        // Move to the last point drawn and close the path.
+                        cachedScatterPlotPath.moveTo(xdrawn,ydrawn);
+                        cachedScatterPlotPath.closePath();
+                    }
+                }
+            }
+        }
+
+        if (userSpecifiedStroke.getLineWidth() != currentSettings.getLineSize()) {
+            userSpecifiedStroke = new BasicStroke(currentSettings.getLineSize());
+        }
+        g2.setStroke(userSpecifiedStroke);
+
+        // Set the line color to use for the plotted data.
+        if (useBlackAndWhiteShade) {
+            g2.setColor(Color.black);
+        } else {
+            g2.setColor(currentSettings.getLineColor());
+        }
+
+        // Enable antialiasing
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Draw the line path.
+        g2.draw(cachedPath);
+
+        // Disable antialiasing
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+
+        // Draw the scatter plot path.
+        if ((cachedScatterPlotPath != null) && currentSettings.isDataPointsShown()) {
+            // Draw the real-data points as a dot with an odd width that is larger
+            // than the line width used to line-plot the model data.
+            int lineWidth = Math.max(3,(2 * currentSettings.getLineSize()) - 1);
+            if (scatterPlotStroke.getLineWidth() != lineWidth) {
+                scatterPlotStroke = new BasicStroke(lineWidth);
+            }
+            g2.setStroke(scatterPlotStroke);
+            if (useBlackAndWhiteShade) {
+                g2.setColor(Color.black);
+            } else {
+                g2.setColor(currentSettings.getDataPointColor());
+            }
+            g2.draw(cachedScatterPlotPath);
+        }
+    }
+
+
     private void drawLine(int x1, int y1, int x2, int y2, Graphics2D g2) {
         g2.draw(new Line2D.Float(x1, y1, x2, y2));
     } // end drawLine
