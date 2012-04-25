@@ -32,6 +32,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
@@ -418,47 +419,8 @@ public class CartesianGraph extends JPanel {
          *
          * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
          */
-        public void writeSVGToSysout() {
-            // Reset the graph bounds if the solver bounds have changed.
-            if (!solverBounds.equals(solver.getBounds())) {
-                resetBounds = true;
-            }
-
-            // Update our cached solver bounds.
-            solverBounds.setBounds(solver.getBounds());
-
-            // Update the graph bounds if the bounds have changed or need to be reset.
-            bounds = getBounds();
-            if (resetBounds || !bounds.equals(prevBounds)) {
-                resetBounds = false;
-                prevBounds = bounds;
-                graphBounds.x = bounds.x;
-                graphBounds.y = bounds.y;
-                graphBounds.width = bounds.width - sideBorderWidth;
-                graphBounds.height = bounds.height - bottomBorderHeight;
-                nullifyCachedPaths();
-            }
-
-            // Force the graph to a 1:1 aspect ratio by adjusting the graph bounds.
-            if (use1To1AspectRatio) {
-                // Now adjust to the bounds of the data to be drawn.
-                double deltaWidth = (solverBounds.right - solverBounds.left) / graphBounds.width;
-                double deltaHeight = (solverBounds.top - solverBounds.bottom) / graphBounds.height;
-                if (deltaWidth < deltaHeight) {
-                    int newWidth = (int)Math.round(graphBounds.width * (deltaWidth / deltaHeight));
-                    if (graphBounds.width != newWidth) {
-                        graphBounds.width = newWidth;
-                        nullifyCachedPaths();
-                    }
-                } else if (deltaHeight < deltaWidth) {
-                    int newHeight = (int)Math.round(graphBounds.height * (deltaHeight / deltaWidth));
-                    if (graphBounds.height != newHeight) {
-                        graphBounds.height = newHeight;
-                        nullifyCachedPaths();
-                    }
-                }
-            }
-
+        public String getSVG() {
+            setupBounds();
 
             // Get a DOMImplementation.
             DOMImplementation domImpl =
@@ -471,18 +433,9 @@ public class CartesianGraph extends JPanel {
             // Create an instance of the SVG Generator.
             SVGGraphics2D g2 = new SVGGraphics2D(document);
 
-
             if ((cachedPath == null) || !USE_CACHED_GRAPH_DRAWING) {
-
-                // Reset the clip region to the size of our bounds.
                 setupGraph(g2);
-
-                clearGraph = false;
-                // Don't graph the data if the clearGraph flag is set and the
-                // path is still cached.
-                if (!clearGraph && (cachedPath == null)) {
-                    graphData(g2);
-                }
+                graphData(g2);
             }
 
             // Enable antialiasing
@@ -511,20 +464,65 @@ public class CartesianGraph extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
             // Finally, stream out SVG to the standard output using
-                    // UTF-8 encoding.
-                    boolean useCSS = true; // we want to use CSS style attributes
-            Writer out = null;
+            // UTF-8 encoding.
+            boolean useCSS = true; // we want to use CSS style attributes
+            String result = null;
+            Writer out;
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
             try {
-                out = new OutputStreamWriter(System.out, "UTF-8");
+                out = new OutputStreamWriter(baos, "UTF-8");
                 g2.stream(out, useCSS);
+                result = new String(baos.toByteArray(), "UTF-8");
             } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             } catch (SVGGraphics2DIOException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             }
-
+            return result;
 
         } // end paintComponent
+
+    private void setupBounds() {
+        // Reset the graph bounds if the solver bounds have changed.
+        if (!solverBounds.equals(solver.getBounds())) {
+            resetBounds = true;
+        }
+
+        // Update our cached solver bounds.
+        solverBounds.setBounds(solver.getBounds());
+
+        // Update the graph bounds if the bounds have changed or need to be reset.
+        bounds = getBounds();
+        if (resetBounds || !bounds.equals(prevBounds)) {
+            resetBounds = false;
+            prevBounds = bounds;
+            graphBounds.x = bounds.x;
+            graphBounds.y = bounds.y;
+            graphBounds.width = bounds.width - sideBorderWidth;
+            graphBounds.height = bounds.height - bottomBorderHeight;
+            nullifyCachedPaths();
+        }
+
+        // Force the graph to a 1:1 aspect ratio by adjusting the graph bounds.
+        if (use1To1AspectRatio) {
+            // Now adjust to the bounds of the data to be drawn.
+            double deltaWidth = (solverBounds.right - solverBounds.left) / graphBounds.width;
+            double deltaHeight = (solverBounds.top - solverBounds.bottom) / graphBounds.height;
+            if (deltaWidth < deltaHeight) {
+                int newWidth = (int)Math.round(graphBounds.width * (deltaWidth / deltaHeight));
+                if (graphBounds.width != newWidth) {
+                    graphBounds.width = newWidth;
+                    nullifyCachedPaths();
+                }
+            } else if (deltaHeight < deltaWidth) {
+                int newHeight = (int)Math.round(graphBounds.height * (deltaHeight / deltaWidth));
+                if (graphBounds.height != newHeight) {
+                    graphBounds.height = newHeight;
+                    nullifyCachedPaths();
+                }
+            }
+        }
+    }
 
     private void drawSonificationTrace(SVGGraphics2D g2) {
         int traceXaxisPixel = x2pix(traceXaxis);
@@ -565,44 +563,7 @@ public class CartesianGraph extends JPanel {
      */
     public void paintComponent(Graphics g) {
         // Reset the graph bounds if the solver bounds have changed.
-        if (!solverBounds.equals(solver.getBounds())) {
-            resetBounds = true;
-        }
-        
-        // Update our cached solver bounds.
-        solverBounds.setBounds(solver.getBounds());
-        
-        // Update the graph bounds if the bounds have changed or need to be reset.
-        bounds = getBounds();
-        if (resetBounds || !bounds.equals(prevBounds)) {
-            resetBounds = false;
-            prevBounds = bounds;
-            graphBounds.x = bounds.x;
-            graphBounds.y = bounds.y;
-            graphBounds.width = bounds.width - sideBorderWidth;
-            graphBounds.height = bounds.height - bottomBorderHeight;
-            nullifyCachedPaths();
-        }
-
-        // Force the graph to a 1:1 aspect ratio by adjusting the graph bounds.
-        if (use1To1AspectRatio) {
-            // Now adjust to the bounds of the data to be drawn.
-            double deltaWidth = (solverBounds.right - solverBounds.left) / graphBounds.width;
-            double deltaHeight = (solverBounds.top - solverBounds.bottom) / graphBounds.height;
-            if (deltaWidth < deltaHeight) {
-                int newWidth = (int)Math.round(graphBounds.width * (deltaWidth / deltaHeight));
-                if (graphBounds.width != newWidth) {
-                    graphBounds.width = newWidth;
-                    nullifyCachedPaths();
-                }
-            } else if (deltaHeight < deltaWidth) {
-                int newHeight = (int)Math.round(graphBounds.height * (deltaHeight / deltaWidth));
-                if (graphBounds.height != newHeight) {
-                    graphBounds.height = newHeight;
-                    nullifyCachedPaths();
-                }
-            }
-        }
+        setupBounds();
         
         Graphics2D g2;
 

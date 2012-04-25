@@ -44,7 +44,8 @@ public class Tutorial_CartesianGraph {
         if (solver.anyGraphable()) {
 
             //Write svg to system out
-            grapher.writeSVGToSysout();
+            String svg = grapher.getSVG();
+            System.out.println(svg);
 
             grapher.drawGraph();
 
